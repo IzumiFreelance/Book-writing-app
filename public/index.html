@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Writing App</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        html, body {
+            height: 100%; /* Ensure full height */
+            margin: 0; /* Remove default margin */
+            overflow: auto; /* Allow scrolling if needed */
+            background-color: #282c34; /* Default dark background */
+            color: white; /* Default text color */
+            transition: background-color 0.3s, color 0.3s; /* Smooth transition */
+        }
+        .light-mode {
+            background-color: #f8f9fa; /* Light background */
+            color: #212529; /* Dark text */
+        }
+        #canvasContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Send canvas to the back */
+        }
+        #appContainer {
+            position: relative;
+            z-index: 1; /* Bring app content to the front */
+            margin: 20px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+            border-radius: 10px; /* Rounded corners */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); /* Shadow for depth */
+            transition: background-color 0.3s; /* Smooth transition */
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column; /* Stack children vertically */
+            height: calc(100% - 40px); /* Full height minus margins */
+            overflow-y: auto; /* Allow vertical scrolling */
+        }
+        .light-mode #appContainer {
+            background-color: rgba(255, 255, 255, 0.8); /* Light semi-transparent background */
+        }
+        #savedBooks {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            opacity: 0; /* Start hidden */
+            transition: opacity 0.5s ease; /* Fade in effect */
+        }
+        .fade-in {
+            opacity: 1; /* Fully visible */
+        }
+        #saveButton, #clearButton, #showSavedBooks {
+            transition: transform 0.2s; /* Button hover effect */
+        }
+        #saveButton:hover, #clearButton:hover, #showSavedBooks:hover {
+            transform: scale(1.05); /* Slightly enlarge on hover */
+        }
+        #wordCount {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        #timer {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #themeToggle {
+            width: 40px; /* Set width for the toggle button */
+            height: 40px; /* Set height for the toggle button */
+            border-radius: 50%; /* Make it circular */
+            border: 2px solid transparent; /* Transparent border */
+            background-color: transparent; /* Transparent background */
+            cursor: pointer; /* Pointer cursor on hover */
+            position: absolute; /* Position it at the top right */
+            top: 20px;
+            right: 20px;
+            transition: background-color 0.3s, border-color 0.3s; /* Smooth transition */
+        }
+        #themeToggle:hover {
+            background-color: rgba(255, 255, 255, 0.2); /* Light hover effect */
+            border-color: rgba(255, 255, 255, 0.5); /* Light border on hover */
+        }
+        @media (max-width: 768px) {
+            #appContainer {
+                margin: 10px;
+                padding: 10px;
+            }
+            #themeToggle {
+                width: 30px; /* Adjusted width for smaller screens */
+                height: 30px; /* Adjusted height for smaller screens */
+                top: 10px; /* Adjusted position for smaller screens */
+                right: 10px; /* Adjusted position for smaller screens */
+            }
+            .form-group {
+                margin-bottom: 15px; /* Increased spacing for better touch targets */
+            }
+            #wordCount, #timer {
+                font-size: 14px; /* Smaller font size for better fit */
+            }
+            #savedBooks {
+                padding: 5px; /* Reduced padding for smaller screens */
+            }
+        }
+        @media (max-width: 576px) {
+            #appContainer {
+                margin: 5px; /* Further reduced margin for very small screens */
+                padding: 5px; /* Further reduced padding for very small screens */
+            }
+            #themeToggle {
+                width: 25px; /* Further adjusted width */
+                height: 25px; /* Further adjusted height */
+            }
+            #saveButton, #clearButton, #showSavedBooks, #startTimer, #stopTimer {
+                font-size: 14px; /* Smaller buttons for smaller screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvasContainer"></div>
+    <div id="appContainer" class="container-fluid">
+        <h1 class="text-center">Book Writing App</h1>
+        <button id="themeToggle" title="Toggle Dark/Light Mode">
+            <i class="fas fa-moon"></i> <!-- Default icon for dark mode -->
+        </button>
+        <div class="form-group">
+            <input type="text" id="title" class="form-control" placeholder="Book Title" />
+        </div>
+        <div class="form-group">
+            <textarea id="content" class="form-control" rows="10" placeholder="Start writing your book here..." oninput="updateWordCount()"></textarea>
+        </div>
+        <div id="wordCount">Word Count: 0</div>
+        <button id="saveButton" class="btn btn-primary btn-block">Save</button>
+        <button id="clearButton" class="btn btn-danger btn-block">Clear</button>
+        <button id="showSavedBooks" class="btn btn-info btn-block mt-2">Show Saved Books</button>
+
+        <div id="timer" class="mt-4">Writing Time: <span id="timerDisplay">00:00</span></div>
+        <button id="startTimer" class="btn btn-info btn-block mt-2">Start Timer</button>
+        <button id="stopTimer" class="btn btn-warning btn-block mt-2" disabled>Stop Timer</button>
+
+       
+
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        // Theme toggle functionality
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            document.body.classList.toggle('light-mode');
+            const isLightMode = document.body.classList.contains('light-mode');
+            this.innerHTML = isLightMode ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>'; // Change icon based on mode
+        });
+
+        // Load saved books on page load
+        window.onload = function() {
+            fetch('/books.json')
+                .then(response => response.json())
+                .then(data => displaySavedBooks(data))
+                .catch(error => console.error('Error loading books:', error));
+        };
+
+        document.getElementById('saveButton').addEventListener('click', function() {
+            const title = document.getElementById('title').value;
+            const content = document.getElementById('content').value;
+            const notes = document.getElementById('notes').value;
+            if (title && content) {
+                const book = { title, content, notes };
+                fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(book)
+                })
+                .then(response => response.text())
+                .then(message => {
+                    alert(message);
+                    // Reload the saved books
+                    fetch('/books.json')
+                        .then(response => response.json())
+                        .then(data => displaySavedBooks(data));
+                })
+                .catch(error => console.error('Error saving book:', error));
+            } else {
+                alert('Please enter both title and content.');
+            }
+        });
+
+        document.getElementById('clearButton').addEventListener('click', function() {
+            document.getElementById('title').value = '';
+            document.getElementById('content').value = '';
+            document.getElementById('notes').value = '';
+        });
+
+        document.getElementById('showSavedBooks').addEventListener('click', function() {
+            fetch('/books.json')
+                .then(response => response.json())
+                .then(data => displaySavedBooks(data))
+                .catch(error => console.error('Error loading books:', error));
+        });
+
+        function displaySavedBooks(books) {
+            const savedBooksList = document.getElementById('savedBooksList');
+            savedBooksList.innerHTML = ''; // Clear previous entries
+            if (books.length > 0) {
+                books.forEach((book) => {
+                    const bookEntry = document.createElement('div');
+                    bookEntry.className = 'book-entry';
+                    bookEntry.innerHTML = `<strong>${book.title}</strong><p>${book.content}</p><p><em>Notes: ${book.notes}</em></p>`;
+                    savedBooksList.appendChild(bookEntry);
+                });
+                document.getElementById('savedBooks').classList.add('fade-in'); // Add fade-in class
+            } else {
+                savedBooksList.innerHTML = '<p>No books saved yet.</p>';
+            }
+        }
+
+        function updateWordCount() {
+            const content = document.getElementById('content').value;
+            const wordCount = content.trim().split(/\s+/).filter(word => word.length > 0).length;
+            document.getElementById('wordCount').innerText = `Word Count: ${wordCount}`;
+        }
+
+        // Timer functionality
+        let timerInterval;
+        let seconds = 0;
+
+        document.getElementById('startTimer').addEventListener('click', function() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                seconds++;
+                const minutes = Math.floor(seconds / 60);
+                const displaySeconds = seconds % 60;
+                document.getElementById('timerDisplay').innerText = `${String(minutes).padStart(2, '0')}:${String(displaySeconds).padStart(2, '0')}`;
+            }, 1000);
+            document.getElementById('startTimer').disabled = true;
+            document.getElementById('stopTimer').disabled = false;
+        });
+
+        document.getElementById('stopTimer').addEventListener('click', function() {
+            clearInterval(timerInterval);
+            document.getElementById('startTimer').disabled = false;
+            document.getElementById('stopTimer').disabled = true;
+        });
+
+        // Goal Tracker
+        document.getElementById('setGoal').addEventListener('click', function() {
+            const goal = document.getElementById('goal').value;
+            const currentWordCount = document.getElementById('wordCount').innerText.split(': ')[1];
+            const goalStatus = document.getElementById('goalStatus');
+            if (goal && currentWordCount) {
+                if (parseInt(currentWordCount) >= parseInt(goal)) {
+                    goalStatus.innerText = `Goal achieved! You wrote ${currentWordCount} words.`;
+                } else {
+                    goalStatus.innerText = `Keep writing! You need ${goal - currentWordCount} more words.`;
+                }
+            } else {
+                alert('Please set a goal and write some content.');
+            }
+        });
+
+        // Random Writing Prompt
+
+
+        document.getElementById('randomPrompt').addEventListener('click', function() {
+            const randomIndex = Math.floor(Math.random() * prompts.length);
+            document.getElementById('promptDisplay').innerText = prompts[randomIndex];
+        });
+    </script>
+</body>
+</html>
